@@ -1,14 +1,32 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowRight, Zap } from "lucide-react";
+import { ArrowRight, Sparkles, Zap } from "lucide-react";
+import { BorderBeam } from "border-beam";
 import { Button } from "@/components/ui/Button";
 import { PixelBadge } from "@/components/ui/PixelBadge";
 import { AnimatedText } from "@/components/ui/AnimatedText";
 import SoftAurora from "@/components/ui/SoftAurora";
+import { useAuth } from "@/hooks/useAuth";
 import { games } from "@/lib/data/catalog";
+import { cn } from "@/lib/utils/cn";
 
 export function Hero() {
+  const router = useRouter();
+  const { isAuthenticated, loginWithWallet } = useAuth();
+
+  function handleSellAccount() {
+    if (!isAuthenticated) {
+      loginWithWallet()
+        .then(() => router.push("/sell/onboarding"))
+        .catch(() => undefined);
+      return;
+    }
+    router.push("/sell/onboarding");
+  }
+
   return (
     <section className="relative overflow-hidden pt-12 md:pt-20 pb-16 md:pb-24 isolate">
       {/* Soft Aurora — WebGL backdrop. Sits behind everything else in the hero. */}
@@ -72,11 +90,9 @@ export function Hero() {
           transition={{ duration: 0.5, delay: 0.55 }}
           className="mt-8 flex flex-col sm:flex-row gap-3"
         >
-          <Button size="lg">
-            Browse Boosts <ArrowRight className="size-5" />
-          </Button>
-          <Button size="lg" variant="secondary">
-            Sell My Account
+          <BrowseBoostsCta href="/boosts" />
+          <Button size="lg" variant="secondary" onClick={handleSellAccount}>
+            <Sparkles className="size-5" /> Sell My Account
           </Button>
         </motion.div>
 
@@ -130,5 +146,60 @@ export function Hero() {
         }
       `}</style>
     </section>
+  );
+}
+
+/**
+ * Headline CTA — multi-stop gradient pill with an animated wash, a soft glow,
+ * a stacked-shadow lift on hover, and a top "gloss" highlight for depth. Wraps
+ * a Next.js Link so it actually navigates.
+ */
+function BrowseBoostsCta({ href }: { href: string }) {
+  return (
+    <BorderBeam
+      size="md"
+      colorVariant="colorful"
+      theme="dark"
+      strength={0.95}
+      className={cn(
+        "inline-flex cursor-pointer rounded-full select-none group",
+        "transition-transform duration-[var(--duration-normal)] ease-[var(--ease-out-expo)]",
+        "hover:-translate-y-0.5 active:translate-y-0",
+      )}
+    >
+      <Link
+        href={href}
+        aria-label="Browse boosts"
+        className={cn(
+          "relative inline-flex items-center justify-center gap-2",
+          "h-14 px-8 rounded-full font-display text-lg font-semibold tracking-tight",
+          "text-white isolate overflow-hidden",
+          "bg-[length:220%_220%] bg-[position:0%_50%]",
+          "transition-[background-position,filter,box-shadow] duration-[var(--duration-slow)] ease-[var(--ease-out-expo)]",
+          "group-hover:bg-[position:100%_50%]",
+          "shadow-[0_8px_24px_oklch(70%_0.28_340/40%),0_2px_8px_oklch(78%_0.18_200/35%),inset_0_1px_0_oklch(100%_0_0/35%),inset_0_-12px_24px_oklch(0%_0_0/25%)]",
+          "group-hover:shadow-[0_12px_36px_oklch(70%_0.28_340/55%),0_4px_16px_oklch(78%_0.18_200/45%),inset_0_1px_0_oklch(100%_0_0/45%),inset_0_-12px_24px_oklch(0%_0_0/25%)]",
+        )}
+        style={{
+          backgroundImage:
+            "linear-gradient(120deg, var(--color-neon-magenta) 0%, var(--color-neon-violet) 35%, var(--color-neon-cyan) 70%, var(--color-neon-amber) 100%)",
+        }}
+      >
+        {/* Top gloss for depth — gives the pill a physical 3D feel rather than flat fill. */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-x-2 top-0.5 h-1/2 rounded-full"
+          style={{
+            background:
+              "linear-gradient(180deg, oklch(100% 0 0 / 28%), oklch(100% 0 0 / 0%))",
+          }}
+        />
+        <span className="relative inline-flex items-center gap-2">
+          <Sparkles className="size-5" aria-hidden />
+          Browse Boosts
+          <ArrowRight className="size-5 transition-transform duration-[var(--duration-normal)] ease-[var(--ease-out-expo)] group-hover:translate-x-1" />
+        </span>
+      </Link>
+    </BorderBeam>
   );
 }

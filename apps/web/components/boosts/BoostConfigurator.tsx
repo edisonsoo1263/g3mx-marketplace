@@ -50,33 +50,38 @@ export function BoostConfigurator({
 
   return (
     <section className="relative">
-      <div className="flex items-end justify-between flex-wrap gap-3 mb-5">
-        <div>
-          <div className="text-[10px] font-mono uppercase tracking-[0.3em] text-[var(--color-neon-cyan)]">
-            Boost Configurator
-          </div>
-          <h2
-            className="mt-2 font-display font-bold text-[var(--color-text-primary)]"
-            style={{ fontSize: "var(--text-h1)", lineHeight: 1.05 }}
-          >
-            Plot your climb
-            <span
-              className="ml-3 align-middle inline-flex items-center gap-2 text-base font-mono uppercase tracking-wider"
-              style={{ color: game?.accent }}
-            >
-              <span
-                className="size-2 rounded-full"
-                style={{ background: game?.accent, boxShadow: `0 0 8px ${game?.accent}` }}
-              />
-              {game?.name}
-            </span>
-          </h2>
-        </div>
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-5">
-        {/* Rank ladders */}
-        <GlowingBorder rarity="rare" animated={false} className="overflow-hidden">
+        {/* Title — mobile renders after the buy/estimate card; desktop spans full width on top */}
+        <div className="order-2 lg:order-1 lg:col-span-2 flex items-end justify-between flex-wrap gap-3">
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.3em] text-[var(--color-neon-cyan)]">
+              Boost Configurator
+            </div>
+            <h2
+              className="mt-2 font-display font-bold text-[var(--color-text-primary)]"
+              style={{ fontSize: "var(--text-h1)", lineHeight: 1.05 }}
+            >
+              Plot your climb
+              <span
+                className="ml-3 align-middle inline-flex items-center gap-2 text-base font-mono uppercase tracking-wider"
+                style={{ color: game?.accent }}
+              >
+                <span
+                  className="size-2 rounded-full"
+                  style={{ background: game?.accent, boxShadow: `0 0 8px ${game?.accent}` }}
+                />
+                {game?.name}
+              </span>
+            </h2>
+          </div>
+        </div>
+
+        {/* Rank ladders — mobile order-3, desktop bottom-left */}
+        <GlowingBorder
+          rarity="rare"
+          animated={false}
+          className="order-3 lg:order-2 overflow-hidden"
+        >
           <div className="p-5 md:p-6 space-y-6">
             <div className="grid grid-cols-2 gap-4">
               <RankSummaryBig label="Current" tier={fromTier} index={fromIdx} />
@@ -102,8 +107,9 @@ export function BoostConfigurator({
           </div>
         </GlowingBorder>
 
-        {/* Live calc card */}
+        {/* Live calc card — mobile FIRST (order-1), desktop bottom-right (order-3) */}
         <CalcCard
+          className="order-1 lg:order-3"
           calc={calc}
           fromTier={fromTier}
           toTier={toTier}
@@ -264,17 +270,24 @@ function CalcCard({
   fromTier,
   toTier,
   tiersClimbed,
+  className,
 }: {
   calc: CalcResult;
   fromTier: RankTier;
   toTier: RankTier;
   tiersClimbed: number;
+  className?: string;
 }) {
   const reduced = useReducedMotion();
   const empty = tiersClimbed === 0;
 
   return (
-    <div className="glass-panel rounded-[var(--radius-card)] p-5 md:p-6 flex flex-col gap-5 lg:sticky lg:top-32 self-start">
+    <div
+      className={cn(
+        "glass-panel rounded-[var(--radius-card)] p-5 md:p-6 flex flex-col gap-5 lg:sticky lg:top-32 self-start",
+        className,
+      )}
+    >
       <div className="flex items-center justify-between">
         <div className="text-[11px] font-mono uppercase tracking-[0.25em] text-[var(--color-text-muted)]">
           Live estimate

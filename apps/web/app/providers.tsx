@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { wagmiConfig } from "@/lib/auth/wagmi";
 import { AuthProvider } from "@/hooks/useAuth";
 import { SidebarProvider } from "@/hooks/useSidebar";
+import { LanguageProvider } from "@/hooks/useLanguage";
 
 interface ProvidersProps {
   children: ReactNode;
@@ -33,7 +34,9 @@ export function Providers({ children }: ProvidersProps) {
     return (
       <QueryClientProvider client={queryClient}>
         <AuthProvider withPrivy={false}>
-          <SidebarProvider>{children}</SidebarProvider>
+          <LanguageProvider>
+            <SidebarProvider>{children}</SidebarProvider>
+          </LanguageProvider>
         </AuthProvider>
       </QueryClientProvider>
     );
@@ -58,7 +61,9 @@ export function Providers({ children }: ProvidersProps) {
       <QueryClientProvider client={queryClient}>
         <WagmiProvider config={wagmiConfig}>
           <AuthProvider withPrivy={true}>
-            <SidebarProvider>{children}</SidebarProvider>
+            <LanguageProvider>
+              <SidebarProvider>{children}</SidebarProvider>
+            </LanguageProvider>
           </AuthProvider>
         </WagmiProvider>
       </QueryClientProvider>
