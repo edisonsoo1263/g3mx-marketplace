@@ -47,8 +47,9 @@ export function SpotlightCard({
       className={cn(
         "group relative overflow-hidden rounded-[var(--radius-card)]",
         "border border-[var(--color-border-subtle)]",
-        // Backdrop variant: translucent surface so the layer behind reads through.
-        backdrop ? "bg-[var(--color-bg-panel)]/65" : "bg-[var(--color-bg-panel)]",
+        // Backdrop variant: keep enough opacity so the content stays crisp
+        // while the animated layer still shows through.
+        backdrop ? "bg-[var(--color-bg-panel)]/82" : "bg-[var(--color-bg-panel)]",
         "transition-colors duration-[var(--duration-normal)]",
         "hover:border-[var(--color-neon-cyan)]/40",
         className,

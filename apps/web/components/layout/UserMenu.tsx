@@ -16,8 +16,10 @@ import {
   ListOrdered,
   Wallet as WalletIcon,
 } from "lucide-react";
+import { TokenIcon } from "@web3icons/react/dynamic";
 import { cn } from "@/lib/utils/cn";
 import type { UnifiedUser } from "@/hooks/useAuth";
+import { useReferral } from "@/hooks/useReferral";
 
 interface UserMenuProps {
   user: UnifiedUser;
@@ -133,12 +135,15 @@ interface ProfilePanelProps {
 
 function ProfilePanel({ user, onClose, onLogout }: ProfilePanelProps) {
   const [copied, setCopied] = useState<"address" | "ref" | null>(null);
+  const referredBy = useReferral();
 
   const wallet = user.walletAddress;
   const handle =
     user.displayName?.replace(/\s+/g, "_") ??
     (wallet ? wallet.slice(2, 10) : user.email?.split("@")[0] ?? "operative");
-  const refUrl = `g3mx.io/ref/${handle.toLowerCase()}`;
+  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://g3mx.xyz").replace(/\/+$/, "");
+  const refUrl = `${baseUrl}/ref/${handle.toLowerCase()}`;
+  const refDisplay = refUrl.replace(/^https?:\/\//, "");
 
   function copy(text: string, kind: "address" | "ref") {
     if (typeof navigator === "undefined" || !navigator.clipboard) return;
@@ -246,6 +251,22 @@ function ProfilePanel({ user, onClose, onLogout }: ProfilePanelProps) {
         </PlainBorderButton>
       </div>
 
+      {/* Referred by — only visible when this visitor came via a /ref/<handle> link */}
+      {referredBy && referredBy.toLowerCase() !== handle.toLowerCase() && (
+        <div className="rounded-xl border border-[var(--color-neon-amber)]/30 bg-[var(--color-neon-amber)]/5 p-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="size-3.5 text-[var(--color-neon-amber)] shrink-0" />
+            <span className="text-xs text-white leading-snug">
+              Referred by{" "}
+              <span className="font-mono text-[var(--color-neon-cyan)]">
+                @{referredBy}
+              </span>
+              <span className="text-white/60"> · bonus rewards on your first boost</span>
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Referral */}
       <div className="rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel-elevated)]/60 p-3">
         <div className="flex items-center gap-2 mb-1">
@@ -256,7 +277,7 @@ function ProfilePanel({ user, onClose, onLogout }: ProfilePanelProps) {
           Get your friends to join — earn XP and a slice of their first boost.
         </p>
         <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-[var(--color-border-subtle)] bg-[var(--color-bg-deep)]">
-          <span className="text-xs font-mono text-white truncate flex-1">{refUrl}</span>
+          <span className="text-xs font-mono text-white truncate flex-1">{refDisplay}</span>
           <IconBtn
             onClick={() => copy(refUrl, "ref")}
             label={copied === "ref" ? "Copied" : "Copy"}
@@ -362,14 +383,13 @@ function BalanceRow({
       <div className="flex items-center gap-2.5">
         <span
           aria-hidden
-          className="grid place-items-center size-7 rounded-full font-display text-[11px] font-black"
+          className="grid place-items-center size-7 rounded-full overflow-hidden"
           style={{
             background: `${accent}1a`,
-            color: accent,
             border: `1px solid ${accent}55`,
           }}
         >
-          {ticker.charAt(0)}
+          <TokenIcon symbol={ticker} size={20} variant="branded" />
         </span>
         <span className="text-sm text-white">{ticker}</span>
       </div>

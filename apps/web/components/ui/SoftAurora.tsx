@@ -230,6 +230,13 @@ export default function SoftAurora({
       }
     }
     window.addEventListener("resize", resize);
+
+    // Container-size changes (e.g. sidebar collapsing/expanding) don't fire
+    // window.resize. ResizeObserver catches every layout shift that affects
+    // the container's dimensions.
+    const resizeObserver = new ResizeObserver(() => resize());
+    resizeObserver.observe(container);
+
     resize();
 
     const geometry = new Triangle(gl);
@@ -292,6 +299,7 @@ export default function SoftAurora({
     return () => {
       cancelAnimationFrame(animationFrameId);
       window.removeEventListener("resize", resize);
+      resizeObserver.disconnect();
       if (enableMouseInteraction) {
         gl.canvas.removeEventListener("mousemove", handleMouseMove);
         gl.canvas.removeEventListener("mouseleave", handleMouseLeave);

@@ -1,63 +1,122 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Search, Sparkles } from "lucide-react";
+import { Suspense, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Search, Sparkles, ArrowRight } from "lucide-react";
+import Link from "next/link";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/sections/Footer";
 import { BoostsPageHeader } from "@/components/boosts/BoostsPageHeader";
-import { GameTabs } from "@/components/boosts/GameTabs";
-import { HeroSearch } from "@/components/boosts/HeroSearch";
-import { QuickFilterPills } from "@/components/boosts/QuickFilterPills";
+import { DbGameShowcase } from "@/components/boosts/DbGameShowcase";
+import { ActiveGameBanner } from "@/components/boosts/ActiveGameBanner";
+import { BoostsToolbar } from "@/components/boosts/BoostsToolbar";
 import { BoostConfigurator } from "@/components/boosts/BoostConfigurator";
+import { ConfiguratorDrawer } from "@/components/boosts/ConfiguratorDrawer";
 import { BoostCard } from "@/components/boosts/BoostCard";
-import { BoostsResultsHeader } from "@/components/boosts/BoostsResultsHeader";
 import { RecentlyCompletedTicker } from "@/components/boosts/RecentlyCompletedTicker";
 import { Button } from "@/components/ui/Button";
-import {
-  type BoostListing,
-  type ServiceType,
-} from "@/lib/data/boostListings";
-import { getLadder, type SortOption } from "@/lib/data/ranks";
+import { type BoostListing, type ServiceType } from "@/lib/data/boostListings";
+import { getLadder, hasLadder, type SortOption } from "@/lib/data/ranks";
 import { useListings } from "@/hooks/useListings";
+import { useDbGames } from "@/hooks/useDbGames";
+import { pickGameName } from "@/lib/types/games";
 
 const DEFAULT_GAME = "valorant";
 
+/**
+ * useSearchParams() forces this route into client-side rendering during
+ * prerender, so Next.js 15 requires a Suspense boundary wrapping any
+ * component that calls it. Splitting the page into a thin default export
+ * + an inner BoostsPageContent satisfies that requirement.
+ */
 export default function BoostsPage() {
-  const [game, setGame] = useState<string>(DEFAULT_GAME);
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[var(--color-bg-deep)]" aria-hidden />
+      }
+    >
+      <BoostsPageContent />
+    </Suspense>
+  );
+}
+
+function BoostsPageContent() {
+  const searchParams = useSearchParams();
+  const { games: dbGames } = useDbGames();
+
+  // Pre-select the game when arriving via /boosts?game=<slug> from the hero
+  // game pills. Falls back to the default if the param is missing.
+  const initialGame = useMemo(() => {
+    const param = searchParams.get("game");
+    return param || DEFAULT_GAME;
+  }, [searchParams]);
+
+  const [game, setGame] = useState<string>(initialGame);
   const [{ fromIdx, toIdx }, setRanks] = useState(() => {
-    const ladder = getLadder(DEFAULT_GAME);
+    const ladder = getLadder(initialGame);
     return { fromIdx: 0, toIdx: Math.min(ladder.tiers.length - 1, 4) };
   });
   const [serviceFilter, setServiceFilter] = useState<ServiceType | "All">("All");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortOption>("popular");
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Merged feed: seller-published listings (newest first) + seed catalog.
-  // Reactively re-renders when a listing is published in any tab.
   const allListings = useListings();
+  const gameHasLadder = hasLadder(game);
 
   function changeGame(slug: string) {
     setGame(slug);
-    const ladder = getLadder(slug);
-    setRanks({ fromIdx: 0, toIdx: Math.min(ladder.tiers.length - 1, 4) });
+    if (hasLadder(slug)) {
+      const ladder = getLadder(slug);
+      setRanks({ fromIdx: 0, toIdx: Math.min(ladder.tiers.length - 1, 4) });
+    } else {
+      // Reset to an inert range — downstream filter still works but the
+      // configurator UI is hidden because the ladder isn't meaningful here.
+      setRanks({ fromIdx: 0, toIdx: 0 });
+    }
   }
 
   function resetFilters() {
     setQuery("");
     setServiceFilter("All");
-    const ladder = getLadder(game);
-    setRanks({ fromIdx: 0, toIdx: Math.min(ladder.tiers.length - 1, 4) });
+    if (gameHasLadder) {
+      const ladder = getLadder(game);
+      setRanks({ fromIdx: 0, toIdx: Math.min(ladder.tiers.length - 1, 4) });
+    }
   }
 
+  // Live count of listings per game — drives the badge on each game card.
+  const countsByGame = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const l of allListings) {
+      counts[l.game] = (counts[l.game] ?? 0) + 1;
+    }
+    return counts;
+  }, [allListings]);
+
   const visible = useMemo(
-    () => sortListings(applyFilters(allListings, game, fromIdx, toIdx, serviceFilter, query), sort),
-    [allListings, game, fromIdx, toIdx, serviceFilter, query, sort],
+    () =>
+      sortListings(
+        applyFilters(
+          allListings,
+          game,
+          fromIdx,
+          toIdx,
+          serviceFilter,
+          query,
+          gameHasLadder,
+        ),
+        sort,
+      ),
+    [allListings, game, fromIdx, toIdx, serviceFilter, query, sort, gameHasLadder],
   );
 
-  const totalForGame = useMemo(
-    () => allListings.filter((l) => l.game === game).length,
-    [allListings, game],
-  );
+  const totalForGame = countsByGame[game] ?? 0;
+  const activeGameName =
+    dbGames.find((g) => g.slug === game)?.name &&
+    pickGameName(dbGames.find((g) => g.slug === game)!.name);
 
   return (
     <>
@@ -65,50 +124,44 @@ export default function BoostsPage() {
       <main>
         <BoostsPageHeader />
 
-        {/* Hero search bar */}
-        <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-8">
-          <HeroSearch
+        {/* DB-driven game picker with search + category filters + lazy icons */}
+        <DbGameShowcase
+          active={game}
+          onChange={changeGame}
+          countsByGame={countsByGame}
+        />
+
+        {/* Sticky filter bar */}
+        <div className="mt-6">
+          <BoostsToolbar
             query={query}
             onQueryChange={setQuery}
-            onPickGame={changeGame}
-            onPickServiceType={(s) => setServiceFilter(s as ServiceType)}
-          />
-        </section>
-
-        {/* Game tabs (sticky) */}
-        <GameTabs active={game} onChange={changeGame} />
-
-        {/* Service-type quick pills */}
-        <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-6">
-          <div className="text-[10px] font-mono uppercase tracking-[0.3em] text-[var(--color-text-muted)] mb-3">
-            Service type
-          </div>
-          <QuickFilterPills active={serviceFilter} onChange={setServiceFilter} />
-        </section>
-
-        {/* Boost Configurator — the centerpiece */}
-        <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
-          <BoostConfigurator
-            gameSlug={game}
-            fromIdx={fromIdx}
-            toIdx={toIdx}
-            onChange={setRanks}
-          />
-        </section>
-
-        {/* Listings grid */}
-        <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-16">
-          <BoostsResultsHeader
-            count={visible.length}
-            totalCount={totalForGame}
+            serviceFilter={serviceFilter}
+            onServiceFilterChange={setServiceFilter}
             sort={sort}
             onSortChange={setSort}
+            onCustomize={() => gameHasLadder && setDrawerOpen(true)}
+            resultCount={visible.length}
+            totalCount={totalForGame}
           />
+        </div>
 
+        {/* Active-game accent banner */}
+        <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mt-6">
+          <ActiveGameBanner gameSlug={game} count={visible.length} />
+        </section>
+
+        {/* Listings grid — main attraction */}
+        <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mt-6 pb-16">
           {visible.length === 0 ? (
-            <EmptyState onReset={resetFilters} />
+            <EmptyState
+              gameName={activeGameName ?? "this game"}
+              gameSlug={game}
+              hasLadder={gameHasLadder}
+              onReset={resetFilters}
+            />
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-5">
               {visible.map((l, i) => (
                 <BoostCard key={l.id} listing={l} index={i} />
               ))}
@@ -119,26 +172,62 @@ export default function BoostsPage() {
         <RecentlyCompletedTicker />
       </main>
       <Footer />
+
+      {/* Customize-boost drawer — only mounted for games with a real ladder */}
+      {gameHasLadder && (
+        <ConfiguratorDrawer
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+        >
+          <BoostConfigurator
+            gameSlug={game}
+            fromIdx={fromIdx}
+            toIdx={toIdx}
+            onChange={setRanks}
+          />
+        </ConfiguratorDrawer>
+      )}
     </>
   );
 }
 
-function EmptyState({ onReset }: { onReset: () => void }) {
+interface EmptyStateProps {
+  gameName: string;
+  gameSlug: string;
+  hasLadder: boolean;
+  onReset: () => void;
+}
+
+function EmptyState({ gameName, gameSlug, hasLadder: ladder, onReset }: EmptyStateProps) {
   return (
-    <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--color-border-strong)] bg-[var(--color-bg-panel)]/40 p-10 text-center">
-      <div className="mx-auto grid place-items-center size-12 rounded-full bg-[var(--color-bg-panel-elevated)] mb-4">
-        <Search className="size-5 text-[var(--color-text-muted)]" />
+    <div className="rounded-2xl border border-dashed border-[var(--color-border-strong)] bg-[var(--color-bg-panel)]/40 p-10 md:p-14 text-center">
+      <div className="mx-auto grid place-items-center size-14 rounded-full bg-[var(--color-bg-panel-elevated)] border border-[var(--color-border-subtle)] mb-4">
+        <Search className="size-6 text-[var(--color-text-muted)]" />
       </div>
-      <h3 className="font-display text-lg font-semibold text-[var(--color-text-primary)]">
-        No boosters match these filters
+      <h3 className="font-display text-xl font-bold text-white">
+        No {gameName} boosts match these filters yet
       </h3>
-      <p className="mt-1 text-base text-[var(--color-text-secondary)] max-w-sm mx-auto">
-        Try widening your rank range, switching service type, or clearing the search.
+      <p className="mt-2 text-sm md:text-base text-white/65 max-w-md mx-auto">
+        {ladder
+          ? "Try widening your search, or be the first booster to list — your service shows up here immediately and gets a featured slot during open beta."
+          : "We just added this game to the catalog — no sellers have listed against it yet. Be the first and grab the featured slot during open beta."}
       </p>
-      <div className="mt-5 inline-flex gap-2">
-        <Button variant="secondary" size="sm" onClick={onReset}>
-          <Sparkles className="size-4" /> Reset all
-        </Button>
+      <div className="mt-6 inline-flex flex-wrap items-center justify-center gap-2">
+        {ladder && (
+          <Button variant="secondary" size="sm" onClick={onReset}>
+            <Sparkles className="size-4" /> Reset filters
+          </Button>
+        )}
+        <Link href={`/games/${gameSlug}`}>
+          <Button variant="secondary" size="sm">
+            View game details
+          </Button>
+        </Link>
+        <Link href="/sell/onboarding">
+          <Button size="sm">
+            List your service <ArrowRight className="size-4" />
+          </Button>
+        </Link>
       </div>
     </div>
   );
@@ -153,11 +242,13 @@ function applyFilters(
   toIdx: number,
   serviceFilter: ServiceType | "All",
   query: string,
+  applyLadder: boolean,
 ): BoostListing[] {
   const q = query.trim().toLowerCase();
   return listings.filter((l) => {
     if (l.game !== game) return false;
-    if (l.toIdx < fromIdx || l.fromIdx > toIdx) return false;
+    // Skip the rank-pair filter for games that don't have a meaningful ladder
+    if (applyLadder && (l.toIdx < fromIdx || l.fromIdx > toIdx)) return false;
     if (serviceFilter !== "All" && l.serviceType !== serviceFilter) return false;
     if (q) {
       const hay = `${l.title} ${l.serviceType} ${l.boosterTag}`.toLowerCase();
@@ -182,8 +273,7 @@ function sortListings(listings: BoostListing[], sort: SortOption): BoostListing[
     default:
       return arr.sort(
         (a, b) =>
-          Number(b.hot) - Number(a.hot) ||
-          b.ordersCompleted - a.ordersCompleted,
+          Number(b.hot) - Number(a.hot) || b.ordersCompleted - a.ordersCompleted,
       );
   }
 }

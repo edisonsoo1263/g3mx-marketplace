@@ -8,28 +8,35 @@ import {
 } from "@/lib/data/userListings";
 
 /**
- * useListings — returns the full marketplace feed: user-published listings
- * (newest first) merged with the static seed catalog.
+ * useListings — returns the full marketplace feed: Supabase-backed
+ * user-published listings (newest first) merged with the static seed
+ * catalog.
  *
- * SSR-safe: starts with just the seed, hydrates the localStorage layer on
- * mount, and re-reads on the same-tab `g3mx:listings-updated` custom event
- * and the native cross-tab `storage` event.
+ * SSR-safe: starts with just the seed, hydrates async on mount, and
+ * re-fetches on the same-tab `g3mx:listings-updated` custom event and the
+ * native cross-tab `storage` event.
  */
 export function useListings(): BoostListing[] {
   const [userListings, setUserListings] = useState<BoostListing[]>([]);
 
   useEffect(() => {
-    setUserListings(getPublishedListings());
+    let cancelled = false;
 
-    function refresh() {
-      setUserListings(getPublishedListings());
+    async function refresh() {
+      const data = await getPublishedListings();
+      if (!cancelled) setUserListings(data);
     }
+    void refresh();
 
-    window.addEventListener(LISTINGS_UPDATED_EVENT, refresh);
-    window.addEventListener("storage", refresh);
+    function onUpdate() {
+      void refresh();
+    }
+    window.addEventListener(LISTINGS_UPDATED_EVENT, onUpdate);
+    window.addEventListener("storage", onUpdate);
     return () => {
-      window.removeEventListener(LISTINGS_UPDATED_EVENT, refresh);
-      window.removeEventListener("storage", refresh);
+      cancelled = true;
+      window.removeEventListener(LISTINGS_UPDATED_EVENT, onUpdate);
+      window.removeEventListener("storage", onUpdate);
     };
   }, []);
 

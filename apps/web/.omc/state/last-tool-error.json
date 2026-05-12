@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"curl -s -o /dev/null -w \\\"/boosts: %{http_code}\\\\n\\\" http://localhost:3001/boosts 2>&1; curl -s -o /dev/null -w \\\"/boosts: %{http_code}\\\\n\\\" http://localhost:3000/boosts 2>&1; curl -s -o /...",
+  "error": "Exit code 7\n/boosts: 200\r\n/boosts: 200\r\n/boosts: 000",
+  "timestamp": "2026-05-07T16:23:59.976Z",
+  "retry_count": 1
+}

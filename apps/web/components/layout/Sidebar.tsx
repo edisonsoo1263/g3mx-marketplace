@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
@@ -19,6 +20,9 @@ import {
 } from "lucide-react";
 import { useSidebar } from "@/hooks/useSidebar";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrders } from "@/hooks/useOrders";
+import { useMyListings } from "@/hooks/useMyListings";
+import { ACTIVE_STATUSES } from "@/lib/data/orders";
 import { cn } from "@/lib/utils/cn";
 
 interface NavItem {
@@ -39,13 +43,6 @@ const mainLinks: NavItem[] = [
   { href: "/topups", label: "Top-ups", icon: Coins, disabled: true, subLabel: "Coming soon" },
 ];
 
-const profileLinks: NavItem[] = [
-  { href: "/account/orders", label: "My Orders", icon: Package, badge: "2" },
-  { href: "/account/listings", label: "My Listings", icon: ListOrdered },
-  { href: "/account/wallet", label: "Wallet", icon: Wallet },
-  { href: "/account/settings", label: "Settings", icon: Settings },
-];
-
 const supportLinks: NavItem[] = [
   { href: "/escrow", label: "Escrow & Disputes", icon: ShieldCheck },
   { href: "/help", label: "Help", icon: HelpCircle },
@@ -62,9 +59,35 @@ export function Sidebar() {
   const { isAuthenticated, loginWithWallet } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
+  const orders = useOrders();
+  const myListings = useMyListings();
 
   // On mobile the drawer is always full width. Collapsed mode only applies on lg+.
   const lgCollapsed = collapsed;
+
+  // Profile-section badges are derived from real data so the sidebar shows the
+  // user's actual queue at a glance. Badges hide entirely when count is 0.
+  const profileLinks: NavItem[] = useMemo(() => {
+    const activeOrders = orders.filter((o) =>
+      ACTIVE_STATUSES.includes(o.status),
+    ).length;
+    return [
+      {
+        href: "/account/orders",
+        label: "My Orders",
+        icon: Package,
+        badge: activeOrders > 0 ? String(activeOrders) : undefined,
+      },
+      {
+        href: "/account/listings",
+        label: "My Listings",
+        icon: ListOrdered,
+        badge: myListings.length > 0 ? String(myListings.length) : undefined,
+      },
+      { href: "/account/wallet", label: "Wallet", icon: Wallet },
+      { href: "/account/settings", label: "Settings", icon: Settings },
+    ];
+  }, [orders, myListings.length]);
 
   function handleSellerGateway() {
     closeSidebar();

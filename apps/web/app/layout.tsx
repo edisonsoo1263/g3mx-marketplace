@@ -3,6 +3,7 @@ import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { ReportIssueWidget } from "@/components/support/ReportIssueWidget";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans-google", display: "swap" });
 const display = Space_Grotesk({
@@ -17,7 +18,7 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "G3MX — Gamified Marketplace for Boosts, Accounts & Top-ups",
+  title: "G3MX — Marketplace",
   description:
     "The crypto-native marketplace for game boosting, account trading, and in-game top-ups. Verified boosters, escrow protection, on-chain rewards.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
@@ -49,6 +50,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Sidebar />
             <div className="lg:flex-1 lg:min-w-0">{children}</div>
           </div>
+          <ReportIssueWidget />
         </Providers>
       </body>
     </html>

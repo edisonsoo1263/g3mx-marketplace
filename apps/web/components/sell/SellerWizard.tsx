@@ -125,19 +125,27 @@ export function SellerWizard({ user }: SellerWizardProps) {
       return;
     }
     setSubmitting(true);
-    // Brief simulated network so the loading state is visible
-    await new Promise((r) => setTimeout(r, 600));
 
-    // Persist to the local listings store so /boosts picks it up immediately.
+    // Persist to Supabase so /boosts picks it up everywhere.
     // Replace the preview's placeholder id with a real unique id.
     const listing: BoostListing = {
       ...buildPreview(draft, user),
       id: generateListingId(),
     };
-    addPublishedListing(listing);
+    const ok = await addPublishedListing(listing);
+    setSubmitting(false);
+    if (!ok) {
+      setErrors([
+        {
+          field: "submit",
+          message:
+            "Couldn't save your listing. Check your connection and try again.",
+        },
+      ]);
+      return;
+    }
 
     clearDraft();
-    setSubmitting(false);
     setPublished(true);
   }
 
@@ -810,7 +818,7 @@ function StepReview({ draft, user }: { draft: ListingDraft; user: UnifiedUser })
             Live preview
           </div>
           <div className="max-w-sm">
-            <BoostCard listing={previewListing} />
+            <BoostCard listing={previewListing} linkable={false} />
           </div>
         </div>
       </div>

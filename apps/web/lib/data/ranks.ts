@@ -108,8 +108,32 @@ const ladders: Record<string, RankLadder> = {
   csgo,
 };
 
+/**
+ * Slug aliases — maps DB-canonical slugs (from public.games.slug) to the
+ * shorter slugs the ladder catalogue happens to use. Lets `/admin/games` add
+ * new games without us having to rename every ladder file.
+ */
+const ladderAliases: Record<string, string> = {
+  "league-of-legends": "lol",
+  "genshin-impact": "genshin",
+  cs2: "csgo",
+  "world-of-warcraft": "wow",
+  "mobile-legends": "mlbb",
+};
+
+/**
+ * Returns true if a real ladder exists for this slug. Callers should branch
+ * on this before showing the rank-pair configurator — falling through to a
+ * default ladder for an unrelated game is misleading.
+ */
+export function hasLadder(gameSlug: string): boolean {
+  const resolved = ladderAliases[gameSlug] ?? gameSlug;
+  return Object.prototype.hasOwnProperty.call(ladders, resolved);
+}
+
 export function getLadder(gameSlug: string): RankLadder {
-  return ladders[gameSlug] ?? valorant;
+  const resolved = ladderAliases[gameSlug] ?? gameSlug;
+  return ladders[resolved] ?? valorant;
 }
 
 export const sortOptions = [

@@ -1,0 +1,136 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1778506873885,
+  "projectRoot": "c:\\Edison\\G3MX Marketplace",
+  "techStack": {
+    "languages": [
+      {
+        "name": "JavaScript/TypeScript",
+        "version": ">=20",
+        "confidence": "high",
+        "markers": [
+          "package.json"
+        ]
+      }
+    ],
+    "frameworks": [],
+    "packageManager": "pnpm",
+    "runtime": "Node.js 20"
+  },
+  "build": {
+    "buildCommand": "pnpm build",
+    "testCommand": null,
+    "lintCommand": "pnpm lint",
+    "devCommand": "pnpm dev",
+    "scripts": {
+      "dev": "turbo run dev",
+      "build": "turbo run build",
+      "lint": "turbo run lint",
+      "typecheck": "turbo run typecheck",
+      "format": "prettier --write \"**/*.{ts,tsx,md,json,css}\""
+    }
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": true,
+    "workspaces": [],
+    "mainDirectories": [
+      "docs"
+    ],
+    "gitBranches": {
+      "defaultBranch": "main",
+      "branchingStrategy": null
+    }
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "apps": {
+      "path": "apps",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1778506873729,
+      "keyFiles": []
+    },
+    "docs": {
+      "path": "docs",
+      "purpose": "Documentation",
+      "fileCount": 3,
+      "lastAccessed": 1778506873731,
+      "keyFiles": [
+        "design-system.md",
+        "SITEMAP.md",
+        "SPEC-landing.md"
+      ]
+    },
+    "supabase": {
+      "path": "supabase",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1778506873747,
+      "keyFiles": [
+        "schema.sql"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "apps\\web\\components\\boosts\\BoostConfigurator.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1778170986991,
+      "type": "file"
+    },
+    {
+      "path": "apps\\web\\app\\layout.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1778171564055,
+      "type": "file"
+    },
+    {
+      "path": "apps\\web\\.env.example",
+      "accessCount": 2,
+      "lastAccessed": 1778171589013,
+      "type": "file"
+    },
+    {
+      "path": "apps\\web\\lib\\ai\\system-prompt.ts",
+      "accessCount": 1,
+      "lastAccessed": 1778171417457,
+      "type": "file"
+    },
+    {
+      "path": "apps\\web\\app\\api\\chat\\route.ts",
+      "accessCount": 1,
+      "lastAccessed": 1778171438411,
+      "type": "file"
+    },
+    {
+      "path": "apps\\web\\hooks\\useChat.ts",
+      "accessCount": 1,
+      "lastAccessed": 1778171465381,
+      "type": "file"
+    },
+    {
+      "path": "apps\\web\\components\\support\\ChatMessage.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1778171483850,
+      "type": "file"
+    },
+    {
+      "path": "apps\\web\\components\\support\\ChatWidget.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1778171537079,
+      "type": "file"
+    }
+  ],
+  "userDirectives": [],
+  "notes_session_2026_05_07": "MAJOR FEATURES SHIPPED: (1) Landing page redesigned - SoftAurora WebGL hero, TrendingBoosts empty-state, LevelShowcase, removed FlashDeals + TopUpRail since those features marked Coming Soon. (2) Boosts page fully redesigned - compact header, GameShowcase visual cards with real game artwork (Valorant V mark, Genshin anime, MLBB cyan operator, LoL gold knight, WoW blue elf, CS2 orange tactical) at public/games/*.png, ActiveGameBanner with accent sweep, BoostsToolbar (search+pills+sort+customize), ConfiguratorDrawer slides in from right hosting BoostConfigurator (single-column drawer-friendly layout). (3) Seller wizard at /sell/onboarding - 5 steps (Service / Cover & Description / Pricing / Options / Review) with autosaved drafts and live BoostCard preview. Publishes to localStorage and shows up immediately on /boosts via useListings hook (custom event + storage event reactive). (4) Sidebar redesigned - persistent rail on lg+, collapse button moved to navbar, primary nav (Home/Boosts/Accounts/Top-ups) with Accounts and Top-ups disabled showing Coming Soon. (5) UserMenu - WalletChip with rainbow border-beam in navbar, ProfilePanel dropdown with wallet address + balances + Top Up/Withdraw + referral link + quick links. (6) AI chatbot 'GG' at /api/chat using Claude Haiku 4.5 with prompt caching; ChatWidget mounted globally; localStorage chat history; graceful 503 fallback when ANTHROPIC_API_KEY missing. (7) BoostCard has per-game animated CSS backdrop (GameBackdrop.tsx) with hex grids/sparkles/scan beams matching each game's identity. (8) BorderBeam rainbow animated borders on Login/WalletChip/search/Button instances - excludes sidebar List Your Service.",
+  "notes_active_gaps": "Not yet built: /account/orders, /account/listings, /account/wallet, /account/settings dashboards (sidebar links 404). Wagmi useBalance not wired (WalletChip shows $0.00 placeholder). No real backend - all listings persist in localStorage (replace with Supabase/Postgres in v0.2). Cover image + description from wizard not surfaced on BoostCard yet (BoostListing shape doesn't have those fields). Privy/Wagmi heavy (~947kB First Load JS) - consider Suspense/lazy-load. /sell/onboarding requires auth via Privy - no email-only path yet. Top-ups + Accounts features stubbed/disabled. No tests yet - TypeScript strict + manual testing only.",
+  "notes_env_keys": "Required env vars in apps/web/.env.local: NEXT_PUBLIC_PRIVY_APP_ID, NEXT_PUBLIC_FIREBASE_* (5 keys: API_KEY, AUTH_DOMAIN, PROJECT_ID, APP_ID, MESSAGING_SENDER_ID), ANTHROPIC_API_KEY (server-only, for chatbot), NEXT_PUBLIC_DEFAULT_CHAIN=bsc. .env.example template is git-tracked, .env.local is gitignored. User confirmed Privy + Firebase keys are configured locally.",
+  "notes_github": "Repo: https://github.com/edisonsoo1263/g3mx-marketplace (private). Two commits on main: 'feat: initial G3MX marketplace MVP' + 'chore: ignore tsbuildinfo'. Force-pushed once to overwrite GitHub auto-init README/LICENSE. Local README.md is comprehensive with stack/folder layout/quick start/roadmap. LICENSE is MIT. .gitignore correctly excludes .env.local + *.tsbuildinfo + .next + node_modules.",
+  "directives": "1) Never push .env.local to git - only .env.example template stays tracked. 2) Run pnpm typecheck after edits before declaring done. 3) Don't run pnpm build while pnpm dev is active (corrupts .next cache). 4) Sidebar 'List Your Service' button uses raw <button> with custom gradient - excluded from BorderBeam wrapper. 5) Game artwork in public/games/ should be 5:3 landscape. 6) When BoostListing drops cover image and description on publish, that's intentional v0.1 - will be added when backend is wired. 7) Use UTF-8 line endings (Git's CRLF warning on Windows is just normalization noise)."
+}

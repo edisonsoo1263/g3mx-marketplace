@@ -1,64 +1,53 @@
+import {
+  fetchAllListings,
+  fetchListingsByUser,
+  insertListing,
+  deleteListing,
+} from "@/lib/supabase/listings";
 import type { BoostListing } from "@/lib/data/boostListings";
 
 /**
- * userListings — localStorage-backed store for boost listings published by
- * sellers via the onboarding wizard. Acts as the temporary "backend" until a
- * real API is wired up. Persisted under one key as a JSON array.
+ * Listings data layer — Supabase-backed.
+ *
+ * Function names mirror the previous localStorage-only API so call sites
+ * (SellerWizard, /account/listings, useListings) stayed mostly unchanged —
+ * just sprinkled with `await` for the async Supabase round-trips.
  *
  * Listeners:
  *   - same-tab updates: dispatch `g3mx:listings-updated` CustomEvent
- *   - cross-tab updates: native `storage` event fires on other tabs
+ *     (after a successful insert/delete) so reactive hooks refetch
+ *   - cross-tab updates: re-uses the native `storage` event for free since
+ *     hooks already subscribe to it
  */
 
-const STORAGE_KEY = "g3mx_published_listings";
 export const LISTINGS_UPDATED_EVENT = "g3mx:listings-updated";
 
-export function getPublishedListings(): BoostListing[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    // Trust the seed shape — we wrote these ourselves
-    return parsed as BoostListing[];
-  } catch {
-    return [];
-  }
+export async function getPublishedListings(): Promise<BoostListing[]> {
+  return fetchAllListings();
 }
 
-export function addPublishedListing(listing: BoostListing): void {
-  if (typeof window === "undefined") return;
-  try {
-    const current = getPublishedListings();
-    // Newest first so the seller sees their listing immediately on /boosts
-    const next = [listing, ...current];
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    window.dispatchEvent(new CustomEvent(LISTINGS_UPDATED_EVENT));
-  } catch {
-    // localStorage may be full; swallow to avoid breaking the publish UX
-  }
+export async function getPublishedListingsByUser(
+  userId: string,
+): Promise<BoostListing[]> {
+  return fetchListingsByUser(userId);
 }
 
-export function removePublishedListing(id: string): void {
-  if (typeof window === "undefined") return;
-  try {
-    const next = getPublishedListings().filter((l) => l.id !== id);
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+export async function addPublishedListing(
+  listing: BoostListing,
+): Promise<boolean> {
+  const ok = await insertListing(listing);
+  if (ok && typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent(LISTINGS_UPDATED_EVENT));
-  } catch {
-    // ignore
   }
+  return ok;
 }
 
-export function clearPublishedListings(): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.removeItem(STORAGE_KEY);
+export async function removePublishedListing(id: string): Promise<boolean> {
+  const ok = await deleteListing(id);
+  if (ok && typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent(LISTINGS_UPDATED_EVENT));
-  } catch {
-    // ignore
   }
+  return ok;
 }
 
 /** Returns a unique listing id, preferring native UUIDs. */

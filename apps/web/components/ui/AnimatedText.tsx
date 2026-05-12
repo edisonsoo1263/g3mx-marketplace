@@ -1,7 +1,7 @@
 "use client";
 
+import { createElement, type ReactNode } from "react";
 import { motion, useReducedMotion, type Variants } from "framer-motion";
-import type { ReactNode } from "react";
 import { cn } from "@/lib/utils/cn";
 
 interface AnimatedTextProps {
@@ -47,8 +47,9 @@ export function AnimatedText({
   const tokens = by === "word" ? text.split(/(\s+)/) : Array.from(text);
 
   if (prefersReduced || !text) {
-    const Tag = as as keyof React.JSX.IntrinsicElements;
-    return <Tag className={cn(className)}>{children}</Tag>;
+    // createElement avoids JSX dynamic-tag inference picking up R3F's
+    // three.js intrinsics (which collapse children to `never`).
+    return createElement(as, { className: cn(className) }, children);
   }
 
   const Container = motion[as] as typeof motion.span;
