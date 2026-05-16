@@ -4,7 +4,7 @@ import { useState, type ReactNode } from "react";
 import { PrivyProvider } from "@privy-io/react-auth";
 import { WagmiProvider } from "@privy-io/wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { wagmiConfig } from "@/lib/auth/wagmi";
+import { wagmiConfig, primaryChain, supportedChains } from "@/lib/auth/wagmi";
 import { AuthProvider } from "@/hooks/useAuth";
 import { SidebarProvider } from "@/hooks/useSidebar";
 import { LanguageProvider } from "@/hooks/useLanguage";
@@ -56,6 +56,10 @@ export function Providers({ children }: ProvidersProps) {
         embeddedWallets: {
           createOnLogin: "users-without-wallets",
         },
+        // Primary chain is Base (or Base Sepolia when
+        // NEXT_PUBLIC_USE_TESTNET=1). Embedded wallets default here.
+        defaultChain: primaryChain,
+        supportedChains: [...supportedChains],
       }}
     >
       <QueryClientProvider client={queryClient}>

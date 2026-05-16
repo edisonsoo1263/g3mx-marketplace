@@ -17,6 +17,7 @@ import {
   Wallet as WalletIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { getAddressExplorerUrl } from "@/lib/auth/wagmi";
 import type { UnifiedUser } from "@/hooks/useAuth";
 
 interface UserMenuProps {
@@ -218,7 +219,7 @@ function ProfilePanel({ user, onClose, onLogout }: ProfilePanelProps) {
               </IconBtn>
               <IconBtn
                 as="a"
-                href={`https://bscscan.com/address/${wallet}`}
+                href={getAddressExplorerUrl(wallet)}
                 target="_blank"
                 rel="noopener noreferrer"
                 label="Open in explorer"
