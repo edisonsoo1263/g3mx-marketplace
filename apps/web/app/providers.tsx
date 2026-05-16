@@ -50,7 +50,7 @@ export function Providers({ children }: ProvidersProps) {
           logo: "/brand/g3mx-logo.png",
           showWalletLoginFirst: false,
         },
-        loginMethods: ["email", "wallet", "google", "github", "twitter"],
+        loginMethods: ["email", "wallet", "google", "github", "twitter", "discord"],
         embeddedWallets: {
           createOnLogin: "users-without-wallets",
         },
