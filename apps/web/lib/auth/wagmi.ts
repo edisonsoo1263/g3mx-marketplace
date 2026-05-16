@@ -1,7 +1,7 @@
 import { createConfig } from "@privy-io/wagmi";
 import { http } from "wagmi";
 import { defineChain } from "viem";
-import { mainnet, bsc, polygon, arbitrum } from "viem/chains";
+import { mainnet, bsc, polygon, arbitrum, baseSepolia } from "viem/chains";
 
 /**
  * HyperEVM (Hyperliquid) — native EVM chain on Hyperliquid L1.
@@ -25,15 +25,16 @@ export const hyperEvm = defineChain({
   testnet: false,
 });
 
-export const supportedChains = [bsc, hyperEvm, mainnet, polygon, arbitrum] as const;
+export const supportedChains = [bsc, hyperEvm, mainnet, polygon, arbitrum, baseSepolia] as const;
 
 export const wagmiConfig = createConfig({
-  chains: [bsc, hyperEvm, mainnet, polygon, arbitrum],
+  chains: [bsc, hyperEvm, mainnet, polygon, arbitrum, baseSepolia],
   transports: {
     [bsc.id]: http(),
     [hyperEvm.id]: http(),
     [mainnet.id]: http(),
     [polygon.id]: http(),
     [arbitrum.id]: http(),
+    [baseSepolia.id]: http(),
   },
 });

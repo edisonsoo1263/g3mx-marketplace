@@ -5,7 +5,7 @@ import { PrivyProvider } from "@privy-io/react-auth";
 import { WagmiProvider } from "@privy-io/wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { wagmiConfig, hyperEvm } from "@/lib/auth/wagmi";
-import { bsc, mainnet, polygon, arbitrum } from "viem/chains";
+import { bsc, mainnet, polygon, arbitrum, baseSepolia } from "viem/chains";
 import { AuthProvider } from "@/hooks/useAuth";
 import { SidebarProvider } from "@/hooks/useSidebar";
 
@@ -55,7 +55,7 @@ export function Providers({ children }: ProvidersProps) {
           createOnLogin: "users-without-wallets",
         },
         defaultChain: bsc,
-        supportedChains: [bsc, hyperEvm, mainnet, polygon, arbitrum],
+        supportedChains: [bsc, hyperEvm, mainnet, polygon, arbitrum, baseSepolia],
       }}
     >
       <QueryClientProvider client={queryClient}>
