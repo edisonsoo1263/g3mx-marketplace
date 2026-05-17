@@ -22,6 +22,12 @@ build/
 *.swp
 *.swo
 
+# Claude Code worktrees + agent state (per-machine, never commit)
+.claude/
+
+# Vercel project link (per-machine, never commit)
+.vercel/
+
 # OS
 .DS_Store
 Thumbs.db
