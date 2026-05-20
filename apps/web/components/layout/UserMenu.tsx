@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { BorderBeam } from "border-beam";
+import { formatUnits, type Address } from "viem";
+import {
+  useUsdcBalanceOnCurrentChain,
+  USDC_DEFAULT_DECIMALS,
+} from "@/lib/contracts/usdc";
 import {
   Power,
   Copy,
@@ -12,14 +17,23 @@ import {
   ArrowDownToLine,
   ArrowUpFromLine,
   Sparkles,
-  Package,
-  ListOrdered,
   Wallet as WalletIcon,
 } from "lucide-react";
-import { TokenIcon } from "@web3icons/react/dynamic";
+import {
+  UsdtCircleColorful,
+  UsdcCircleColorful,
+  BaseCircleColorful,
+} from "@ant-design/web3-icons";
 import { cn } from "@/lib/utils/cn";
 import type { UnifiedUser } from "@/hooks/useAuth";
 import { useReferral } from "@/hooks/useReferral";
+import { getAddressExplorerUrl } from "@/lib/auth/wagmi";
+import { usePrivy } from "@privy-io/react-auth";
+import {
+  resolveDisplayPicture,
+  useProfilePrefs,
+} from "@/hooks/useProfilePrefs";
+import { useLocale } from "@/hooks/useLocale";
 
 interface UserMenuProps {
   user: UnifiedUser;
@@ -35,52 +49,131 @@ interface UserMenuProps {
  */
 export function UserMenu({ user, onLogout }: UserMenuProps) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+  const [panelPos, setPanelPos] = useState<{
+    top: number;
+    right: number;
+  } | null>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
   const reduced = useReducedMotion();
 
+  // SSR safety — document.body only exists after hydration.
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Anchor the portal-rendered panel to the wallet chip's screen position.
+  // Re-measured on every relevant geometry change so the panel tracks the
+  // chip if the viewport scrolls/resizes while the menu is open.
   useEffect(() => {
     if (!open) return;
-    function onMouseDown(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    function updatePos() {
+      const el = triggerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      setPanelPos({
+        top: rect.bottom + 12,
+        right: window.innerWidth - rect.right,
+      });
     }
+    updatePos();
+    window.addEventListener("resize", updatePos);
+    window.addEventListener("scroll", updatePos, true);
+    return () => {
+      window.removeEventListener("resize", updatePos);
+      window.removeEventListener("scroll", updatePos, true);
+    };
+  }, [open]);
+
+  // Esc to close. Click-outside is handled by the backdrop's onClick now
+  // that the panel is portal-rendered to document.body (siblings, not a
+  // parent-child relationship).
+  useEffect(() => {
+    if (!open) return;
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") setOpen(false);
     }
-    window.addEventListener("mousedown", onMouseDown);
     window.addEventListener("keydown", onKeyDown);
     return () => {
-      window.removeEventListener("mousedown", onMouseDown);
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [open]);
 
+  // Lock body scroll while the menu is open — prevents the page sliding
+  // around behind the dimmed backdrop.
+  useEffect(() => {
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open]);
+
   return (
-    <div ref={ref} className="relative">
+    <div ref={triggerRef} className="relative">
       <WalletChip
         user={user}
         active={open}
         onClick={() => setOpen((v) => !v)}
       />
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={reduced ? false : { opacity: 0, y: -4, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -4, scale: 0.98 }}
-            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute right-0 top-full mt-3 z-50"
-          >
-            <ProfilePanel
-              user={user}
-              onClose={() => setOpen(false)}
-              onLogout={() => {
-                onLogout();
-                setOpen(false);
-              }}
-            />
-          </motion.div>
+      {/* Portal the backdrop + panel to document.body so they sit above
+          every other stacking context in the app (Sidebar at z-50, navbar
+          children, content, footer). Without the portal the backdrop ends
+          up trapped inside the navbar's stacking context and only dims
+          part of the page. */}
+      {mounted &&
+        createPortal(
+          <AnimatePresence>
+            {open && panelPos && (
+              <>
+                {/* Modal backdrop — full-viewport dim + blur. 80% black
+                    keeps the page faintly visible behind (per "still can
+                    visible"); blur softens whatever shows through. */}
+                <motion.div
+                  key="user-menu-backdrop"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.18 }}
+                  onClick={() => setOpen(false)}
+                  className="fixed inset-0 z-[9998] bg-black/80 backdrop-blur-md"
+                  aria-hidden
+                />
+                {/* Panel — positioned via getBoundingClientRect of the
+                    wallet chip, so it stays anchored to the chip even
+                    though it lives outside the React subtree. */}
+                <motion.div
+                  key="user-menu-panel"
+                  initial={
+                    reduced ? false : { opacity: 0, y: -4, scale: 0.98 }
+                  }
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                  transition={{
+                    duration: 0.18,
+                    ease: [0.16, 1, 0.3, 1],
+                  }}
+                  className="fixed z-[9999]"
+                  style={{
+                    top: panelPos.top,
+                    right: panelPos.right,
+                  }}
+                >
+                  <ProfilePanel
+                    user={user}
+                    onClose={() => setOpen(false)}
+                    onLogout={() => {
+                      onLogout();
+                      setOpen(false);
+                    }}
+                  />
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>,
+          document.body,
         )}
-      </AnimatePresence>
     </div>
   );
 }
@@ -94,8 +187,35 @@ interface WalletChipProps {
 }
 
 function WalletChip({ user, active, onClick }: WalletChipProps) {
-  // Placeholder balance — replace with `useBalance` from wagmi later.
-  const balanceUsd = "$0.00";
+  // Read the wallet's USDC balance on whichever chain it's currently
+  // connected to. Switches automatically between Base / Base Sepolia
+  // (and shows $0.00 on any other chain we don't have a USDC address
+  // mapped for — see usdcAddressForChain in lib/contracts/usdc.ts).
+  const walletAddress = user.walletAddress as Address | undefined;
+  const { data: rawBalance, isLoading: balanceLoading } =
+    useUsdcBalanceOnCurrentChain(walletAddress);
+
+  const balanceUsd = useMemo(() => {
+    if (balanceLoading && rawBalance === undefined) return "…";
+    if (rawBalance === undefined || rawBalance === null) return "$0.00";
+    const formatted = Number(
+      formatUnits(rawBalance as bigint, USDC_DEFAULT_DECIMALS),
+    );
+    // Two decimal places below $1000, no decimals above ($1,234 instead
+    // of $1,234.56) so the chip stays narrow at higher balances.
+    if (formatted >= 1000) {
+      return `$${Math.round(formatted).toLocaleString()}`;
+    }
+    return `$${formatted.toFixed(2)}`;
+  }, [rawBalance, balanceLoading]);
+
+  const { pictureUrl: customPicture, username, pictureSource } = useProfilePrefs();
+  const { user: privyUser } = usePrivy();
+  // Resolve the visible avatar by combining the custom upload + the user's
+  // picked OAuth source (Discord / X / Google) — keeps navbar in lockstep
+  // with the picture-source picker in Settings.
+  const pictureUrl = resolveDisplayPicture(pictureSource, customPicture, privyUser);
+  const initialSource = username ?? user.displayName ?? user.id;
 
   return (
     <BorderBeam
@@ -116,7 +236,12 @@ function WalletChip({ user, active, onClick }: WalletChipProps) {
         aria-label="Open user menu"
         className="flex items-center gap-2 h-9 pl-1 pr-3.5 rounded-full bg-[var(--color-bg-deep)] cursor-pointer"
       >
-        <Avatar seed={user.id} size={28} />
+        <Avatar
+          seed={user.id}
+          size={28}
+          pictureUrl={pictureUrl}
+          letter={initialSource.slice(0, 1)}
+        />
         <span className="font-mono text-sm font-semibold text-white tabular-nums">
           {balanceUsd}
         </span>
@@ -136,10 +261,18 @@ interface ProfilePanelProps {
 function ProfilePanel({ user, onClose, onLogout }: ProfilePanelProps) {
   const [copied, setCopied] = useState<"address" | "ref" | null>(null);
   const referredBy = useReferral();
+  const { t } = useLocale();
+  const { pictureUrl: customPicture, username, pictureSource } = useProfilePrefs();
+  const { user: privyUser } = usePrivy();
+  // Resolve the visible avatar by combining the custom upload + the user's
+  // picked OAuth source (Discord / X / Google) — keeps navbar in lockstep
+  // with the picture-source picker in Settings.
+  const pictureUrl = resolveDisplayPicture(pictureSource, customPicture, privyUser);
 
   const wallet = user.walletAddress;
+  const baseDisplay = username ?? user.displayName ?? null;
   const handle =
-    user.displayName?.replace(/\s+/g, "_") ??
+    baseDisplay?.replace(/\s+/g, "_") ??
     (wallet ? wallet.slice(2, 10) : user.email?.split("@")[0] ?? "operative");
   const baseUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://g3mx.xyz").replace(/\/+$/, "");
   const refUrl = `${baseUrl}/ref/${handle.toLowerCase()}`;
@@ -167,13 +300,19 @@ function ProfilePanel({ user, onClose, onLogout }: ProfilePanelProps) {
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <Avatar seed={user.id} size={48} rounded="md" />
+          <Avatar
+            seed={user.id}
+            size={48}
+            rounded="md"
+            pictureUrl={pictureUrl}
+            letter={(baseDisplay ?? handle ?? user.id).slice(0, 1)}
+          />
           <div className="min-w-0 leading-tight">
             <div className="text-[10px] font-mono uppercase tracking-[0.25em] text-white/60">
-              Operative
+              {t("userMenu.operative")}
             </div>
             <div className="text-base font-semibold text-white truncate">
-              {user.displayName ?? handle}
+              {baseDisplay ?? handle}
             </div>
             {user.email && (
               <div className="text-[11px] font-mono text-white/50 truncate mt-0.5">
@@ -185,8 +324,8 @@ function ProfilePanel({ user, onClose, onLogout }: ProfilePanelProps) {
         <button
           type="button"
           onClick={onLogout}
-          aria-label="Logout"
-          title="Logout"
+          aria-label={t("userMenu.logout")}
+          title={t("userMenu.logout")}
           className={cn(
             "shrink-0 grid place-items-center size-9 rounded-md cursor-pointer",
             "text-white/70 hover:text-[var(--color-danger)]",
@@ -204,7 +343,7 @@ function ProfilePanel({ user, onClose, onLogout }: ProfilePanelProps) {
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.25em] text-white/60">
                 <WalletIcon className="size-3" />
-                Wallet address
+                {t("userMenu.walletAddress")}
               </div>
               <div className="mt-1 font-mono text-sm text-white truncate">
                 {shortAddr(wallet)}
@@ -213,7 +352,7 @@ function ProfilePanel({ user, onClose, onLogout }: ProfilePanelProps) {
             <div className="flex items-center gap-1 shrink-0">
               <IconBtn
                 onClick={() => copy(wallet, "address")}
-                label={copied === "address" ? "Copied" : "Copy"}
+                label={copied === "address" ? t("userMenu.copied") : t("userMenu.copy")}
               >
                 {copied === "address" ? (
                   <CheckCircle2 className="size-4 text-[var(--color-success)]" />
@@ -223,10 +362,10 @@ function ProfilePanel({ user, onClose, onLogout }: ProfilePanelProps) {
               </IconBtn>
               <IconBtn
                 as="a"
-                href={`https://bscscan.com/address/${wallet}`}
+                href={getAddressExplorerUrl(wallet)}
                 target="_blank"
                 rel="noopener noreferrer"
-                label="Open in explorer"
+                label={t("userMenu.openInExplorer")}
               >
                 <ExternalLink className="size-4" />
               </IconBtn>
@@ -235,19 +374,20 @@ function ProfilePanel({ user, onClose, onLogout }: ProfilePanelProps) {
         </div>
       )}
 
-      {/* Balances */}
+      {/* Balances — USDT, USDC, Base ETH. */}
       <div className="rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel-elevated)]/60 p-3 space-y-2">
-        <BalanceRow ticker="BNB" amount="0.00" tone="amber" />
-        <BalanceRow ticker="USDT" amount="0.00" tone="cyan" />
+        <BalanceRow ticker="USDT" amount="0.00" Icon={UsdtCircleColorful} accent="#26a17b" />
+        <BalanceRow ticker="USDC" amount="0.00" Icon={UsdcCircleColorful} accent="#2775ca" />
+        <BalanceRow ticker="Base" amount="0.00" Icon={BaseCircleColorful} accent="#0052ff" />
       </div>
 
       {/* Top Up / Withdraw */}
       <div className="grid grid-cols-2 gap-2">
         <GradientBorderButton onClick={onClose}>
-          <ArrowDownToLine className="size-4" /> Top Up
+          <ArrowDownToLine className="size-4" /> {t("userMenu.topUp")}
         </GradientBorderButton>
         <PlainBorderButton onClick={onClose}>
-          <ArrowUpFromLine className="size-4" /> Withdraw
+          <ArrowUpFromLine className="size-4" /> {t("userMenu.withdraw")}
         </PlainBorderButton>
       </div>
 
@@ -257,11 +397,13 @@ function ProfilePanel({ user, onClose, onLogout }: ProfilePanelProps) {
           <div className="flex items-center gap-2">
             <Sparkles className="size-3.5 text-[var(--color-neon-amber)] shrink-0" />
             <span className="text-xs text-white leading-snug">
-              Referred by{" "}
+              {t("userMenu.referredByPrefix")}{" "}
               <span className="font-mono text-[var(--color-neon-cyan)]">
                 @{referredBy}
               </span>
-              <span className="text-white/60"> · bonus rewards on your first boost</span>
+              <span className="text-white/60">
+                {t("userMenu.referredBySuffix")}
+              </span>
             </span>
           </div>
         </div>
@@ -271,16 +413,16 @@ function ProfilePanel({ user, onClose, onLogout }: ProfilePanelProps) {
       <div className="rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel-elevated)]/60 p-3">
         <div className="flex items-center gap-2 mb-1">
           <Sparkles className="size-3.5 text-[var(--color-neon-amber)]" />
-          <span className="text-sm font-semibold text-white">Referral link</span>
+          <span className="text-sm font-semibold text-white">{t("userMenu.referralLink")}</span>
         </div>
         <p className="text-xs text-white/70 mb-2.5">
-          Get your friends to join — earn XP and a slice of their first boost.
+          {t("userMenu.referralTagline")}
         </p>
         <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-[var(--color-border-subtle)] bg-[var(--color-bg-deep)]">
           <span className="text-xs font-mono text-white truncate flex-1">{refDisplay}</span>
           <IconBtn
             onClick={() => copy(refUrl, "ref")}
-            label={copied === "ref" ? "Copied" : "Copy"}
+            label={copied === "ref" ? t("userMenu.copied") : t("userMenu.copy")}
           >
             {copied === "ref" ? (
               <CheckCircle2 className="size-3.5 text-[var(--color-success)]" />
@@ -291,23 +433,14 @@ function ProfilePanel({ user, onClose, onLogout }: ProfilePanelProps) {
         </div>
         <div className="flex items-center justify-between mt-2.5 text-xs">
           <span className="text-white/60">
-            Total invited <span className="font-mono text-white ml-1">0</span>
+            {t("userMenu.totalInvited")} <span className="font-mono text-white ml-1">0</span>
           </span>
           <span className="text-white/60">
-            XP earned <span className="font-mono text-[var(--color-neon-amber)] ml-1">0</span>
+            {t("userMenu.xpEarned")} <span className="font-mono text-[var(--color-neon-amber)] ml-1">0</span>
           </span>
         </div>
       </div>
 
-      {/* Quick links */}
-      <div className="grid grid-cols-2 gap-2">
-        <QuickLink href="/account/orders" icon={Package} onClose={onClose}>
-          My Orders
-        </QuickLink>
-        <QuickLink href="/account/listings" icon={ListOrdered} onClose={onClose}>
-          My Listings
-        </QuickLink>
-      </div>
     </div>
   );
 }
@@ -370,59 +503,23 @@ function PlainBorderButton({
 function BalanceRow({
   ticker,
   amount,
-  tone,
+  Icon,
 }: {
   ticker: string;
   amount: string;
-  tone: "amber" | "cyan";
+  Icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+  /** Optional accent — currently unused since the Colorful icons carry their
+   *  own brand color, but kept on the type so callers can stay declarative. */
+  accent?: string;
 }) {
-  const accent =
-    tone === "amber" ? "var(--color-neon-amber)" : "var(--color-neon-cyan)";
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2.5">
-        <span
-          aria-hidden
-          className="grid place-items-center size-7 rounded-full overflow-hidden"
-          style={{
-            background: `${accent}1a`,
-            border: `1px solid ${accent}55`,
-          }}
-        >
-          <TokenIcon symbol={ticker} size={20} variant="branded" />
-        </span>
-        <span className="text-sm text-white">{ticker}</span>
+        <Icon className="size-7 shrink-0" />
+        <span className="text-sm font-semibold text-white">{ticker}</span>
       </div>
       <span className="text-sm font-mono text-white tabular-nums">{amount}</span>
     </div>
-  );
-}
-
-function QuickLink({
-  href,
-  icon: Icon,
-  children,
-  onClose,
-}: {
-  href: string;
-  icon: React.ComponentType<{ className?: string }>;
-  children: React.ReactNode;
-  onClose: () => void;
-}) {
-  return (
-    <Link
-      href={href}
-      onClick={onClose}
-      className={cn(
-        "flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer",
-        "text-sm text-white",
-        "border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel-elevated)]/40",
-        "hover:border-[var(--color-neon-cyan)]/40 hover:bg-[var(--color-bg-panel-elevated)] transition-colors",
-      )}
-    >
-      <Icon className="size-4 text-white/70" />
-      <span>{children}</span>
-    </Link>
   );
 }
 
@@ -482,13 +579,45 @@ function Avatar({
   seed,
   size,
   rounded = "full",
+  pictureUrl,
+  letter,
 }: {
   seed: string;
   size: number;
   rounded?: "full" | "md";
+  /** Custom uploaded picture (data URL). Falls back to gradient + letter. */
+  pictureUrl?: string | null;
+  /** Override the initial letter (defaults to the seed's first char). */
+  letter?: string;
 }) {
   const hue1 = hash(seed) % 360;
   const hue2 = (hue1 + 60) % 360;
+  const initial = (letter ?? seed.slice(0, 1)).toUpperCase();
+
+  if (pictureUrl) {
+    return (
+      <span
+        aria-hidden
+        className={cn(
+          "overflow-hidden shrink-0 block",
+          rounded === "full" ? "rounded-full" : "rounded-md",
+        )}
+        style={{
+          width: size,
+          height: size,
+          boxShadow: rounded === "md" ? "var(--shadow-glow-cyan)" : undefined,
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={pictureUrl}
+          alt=""
+          className="w-full h-full object-cover"
+        />
+      </span>
+    );
+  }
+
   return (
     <span
       aria-hidden
@@ -504,7 +633,7 @@ function Avatar({
         boxShadow: rounded === "md" ? "var(--shadow-glow-cyan)" : undefined,
       }}
     >
-      {seed.slice(0, 1).toUpperCase()}
+      {initial}
     </span>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Menu, Search, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { BorderBeam } from "border-beam";
@@ -14,6 +14,24 @@ export function Navbar() {
   const { toggle: toggleSidebar, collapsed, toggleCollapsed } = useSidebar();
   const router = useRouter();
   const [query, setQuery] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        inputRef.current?.focus();
+        inputRef.current?.select();
+        return;
+      }
+      if (e.key === "Escape" && document.activeElement === inputRef.current) {
+        inputRef.current?.blur();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -69,6 +87,7 @@ export function Navbar() {
             >
               <Search className="size-4 text-white/50 shrink-0" />
               <input
+                ref={inputRef}
                 type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -76,7 +95,15 @@ export function Navbar() {
                 className="flex-1 bg-transparent outline-none text-sm text-white placeholder:text-white/50"
                 aria-label="Search"
               />
-              <kbd className="hidden sm:inline-flex h-5 px-1.5 rounded text-[10px] font-mono uppercase tracking-wider bg-[var(--color-bg-panel-elevated)] border border-[var(--color-border-subtle)] text-white/60">
+              <kbd
+                aria-hidden="true"
+                className={cn(
+                  "hidden sm:inline-flex items-center justify-center shrink-0",
+                  "h-7 min-w-[2.25rem] px-2 rounded-md leading-none",
+                  "text-[11px] font-semibold font-mono uppercase tracking-wider",
+                  "bg-[var(--color-bg-panel-elevated)] border border-[var(--color-border-subtle)] text-white/70",
+                )}
+              >
                 ⌘K
               </kbd>
             </label>

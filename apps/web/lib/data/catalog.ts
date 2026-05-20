@@ -14,6 +14,11 @@ export interface Game {
   cardImage?: string;
 }
 
+/**
+ * Top 10 most popular games — surfaces in the home Hero ticker and other
+ * marketing surfaces. The full 39-game catalogue lives in Supabase
+ * (`public.games`) and is fetched via `/api/games`.
+ */
 export const games: Game[] = [
   {
     slug: "valorant",
@@ -21,15 +26,15 @@ export const games: Game[] = [
     region: "GLOBAL",
     publisher: "Riot Games",
     accent: "#ff4655",
-    cardImage: "/games/valorant.png",
+    cardImage: "/games/valorant.jpg",
   },
   {
-    slug: "genshin",
-    name: "Genshin Impact",
-    region: "ASIA",
-    publisher: "HoYoverse",
-    accent: "#9c8cf0",
-    cardImage: "/games/genshin.png",
+    slug: "lol",
+    name: "League of Legends",
+    region: "GLOBAL",
+    publisher: "Riot Games",
+    accent: "#c89b3c",
+    cardImage: "/games/lol.png",
   },
   {
     slug: "mlbb",
@@ -40,12 +45,40 @@ export const games: Game[] = [
     cardImage: "/games/mlbb.png",
   },
   {
-    slug: "lol",
-    name: "League of Legends",
+    slug: "genshin",
+    name: "Genshin Impact",
+    region: "ASIA",
+    publisher: "HoYoverse",
+    accent: "#9c8cf0",
+    cardImage: "/games/genshin.png",
+  },
+  {
+    slug: "fortnite",
+    name: "Fortnite",
     region: "GLOBAL",
-    publisher: "Riot Games",
-    accent: "#c89b3c",
-    cardImage: "/games/lol.png",
+    publisher: "Epic Games",
+    accent: "#00b4ff",
+  },
+  {
+    slug: "apex-legends",
+    name: "Apex Legends",
+    region: "GLOBAL",
+    publisher: "EA",
+    accent: "#ff3d3d",
+  },
+  {
+    slug: "pubg-mobile",
+    name: "PUBG Mobile",
+    region: "ASIA",
+    publisher: "Krafton",
+    accent: "#f6c200",
+  },
+  {
+    slug: "honkai-star-rail",
+    name: "Honkai: Star Rail",
+    region: "ASIA",
+    publisher: "HoYoverse",
+    accent: "#8b6cff",
   },
   {
     slug: "wow",
